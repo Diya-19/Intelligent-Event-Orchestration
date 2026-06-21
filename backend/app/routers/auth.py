@@ -105,7 +105,6 @@ def verify_judge(token: str, db: Session = Depends(get_db)):
     # Return the raw token exactly as expected by the require_evaluator dependency
     return TokenResponse(access_token=token)
 
-
 @router.post("/request-judge-link", status_code=status.HTTP_200_OK)
 def request_judge_link(body: JudgeLinkRequest, db: Session = Depends(get_db)):
     """
@@ -202,12 +201,9 @@ def verify_participant(token: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access link",
         )
-    session_token = create_access_token({
-        "sub": f"participant:{participant.id}",
-        "email": participant.email,
-        "role": "participant",
-    })
-    return TokenResponse(access_token=session_token)
+    # Return the portal token itself — it's already a 30-day JWT signed by APP_SECRET.
+    # This ensures the same token works for HTTP and WebSocket without expiring in 7 days.
+    return TokenResponse(access_token=token)
 
 
 @router.post("/request-participant-link", status_code=status.HTTP_200_OK)

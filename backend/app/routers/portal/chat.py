@@ -292,7 +292,10 @@ async def chat_websocket(
             if sub.startswith("participant:"):
                 participant_id = sub.split(":", 1)[1]
         except Exception:
-            pass
+            # JWT decode failed — try portal_token DB lookup as fallback
+            p = db.query(Participant).filter(Participant.portal_token == token).first()
+            if p:
+                participant_id = str(p.id)
 
     if not participant_id:
         await websocket.close(code=4001)
