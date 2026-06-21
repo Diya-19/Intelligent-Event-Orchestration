@@ -29,6 +29,11 @@ interface TravelData {
   combined_ticket_name: string | null;
   combined_ticket_uploaded_at: string | null;
   is_locked: boolean;
+  travel_locked?: boolean;
+  reimbursement_limit?: number;
+  ticket_file_url?: string | null;
+  travel_details?: any;
+  travel_preferences?: any;
   participant_notes: string | null;
   claim: ClaimData | null;
   timeline: any;
@@ -69,22 +74,22 @@ export default function TravelDashboard() {
   const travelDetailsErrors = React.useMemo(() => {
     const errors: Record<string, string> = {};
     const f = travelDetailsForm;
-    
+
     if (!f.arrivalDate) errors.arrivalDate = "Arrival Date is required.";
     if (!f.arrivalTime) errors.arrivalTime = "Arrival Time is required.";
     if (!f.arrivalStation.trim()) errors.arrivalStation = "Arrival Airport / Station is required.";
-    
+
     if (!f.departureDate) errors.departureDate = "Departure Date is required.";
     if (!f.departureTime) errors.departureTime = "Departure Time is required.";
     if (!f.departureStation.trim()) errors.departureStation = "Departure Airport / Station is required.";
-    
+
     if (!f.flightNumber.trim()) errors.flightNumber = "Flight / Train Number is required.";
     if (!f.pnr.trim()) {
       errors.pnr = "PNR Number is required.";
     } else if (f.pnr.trim().length < 6) {
       errors.pnr = "PNR must be at least 6 characters.";
     }
-    
+
     if (f.arrivalDate && f.departureDate) {
       if (f.departureDate < f.arrivalDate) {
         errors.departureDate = "Cannot be before arrival.";
@@ -135,7 +140,7 @@ export default function TravelDashboard() {
       ]);
       setTravelData(travelRes.data);
       setParticipantData(dashRes.data);
-      
+
       if (travelRes.data?.travel_details) {
         setTravelDetailsForm({
           arrivalDate: travelRes.data.travel_details.arrival_date || "",
@@ -170,10 +175,10 @@ export default function TravelDashboard() {
       alert("Only PDF files are allowed for tickets.");
       return;
     }
-    
+
     const formData = new FormData();
     formData.append("file", file);
-    
+
     try {
       await api.post(`/api/participant/travel/ticket/combined`, formData, {
         headers: { "Content-Type": "multipart/form-data" }
@@ -187,10 +192,10 @@ export default function TravelDashboard() {
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-    
+
     const formData = new FormData();
     formData.append("file", file);
-    
+
     try {
       await api.post("/api/participant/travel/claim/receipt", formData, {
         headers: { "Content-Type": "multipart/form-data" }
@@ -206,7 +211,7 @@ export default function TravelDashboard() {
     const val = e.target.value.toUpperCase();
     setClaimForm({...claimForm, ifsc_code: val});
     setIfscError(false);
-    
+
     if (/^[A-Z]{4}0[A-Z0-9]{6}$/.test(val)) {
       setIfscLoading(true);
       try {
@@ -226,7 +231,7 @@ export default function TravelDashboard() {
   const submitClaim = async (e: React.FormEvent) => {
     e.preventDefault();
     setClaimFormError("");
-    
+
     if (!accountsMatch) {
       setClaimFormError("Account numbers do not match.");
       return;
@@ -247,7 +252,7 @@ export default function TravelDashboard() {
       setClaimFormError("Travel Ticket PDF is missing.");
       return;
     }
-    
+
     try {
       setClaimSubmitting(true);
       await api.post("/api/participant/travel/claim", {
@@ -293,7 +298,7 @@ export default function TravelDashboard() {
   const eventName = participantData?.event?.name || "Event";
 
   const maxBudget = budget;
-  
+
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "TBD";
     try {
@@ -322,7 +327,7 @@ export default function TravelDashboard() {
     { label: 'Event Day', isCompleted: false }
   ];
 
-  const displayReimbursementStatus = claim?.status 
+  const displayReimbursementStatus = claim?.status
     ? claim.status.replace("_", " ").replace(/\w\S*/g, (w) => (w.replace(/^\w/, (c) => c.toUpperCase())))
     : "Draft";
 
@@ -330,7 +335,7 @@ export default function TravelDashboard() {
     <div className="space-y-6 p-8">
       <TravelTabs />
       <h1 className="text-2xl font-bold text-gray-900">Travel Dashboard</h1>
-      
+
       {/* Hidden file inputs */}
       <input type="file" accept=".pdf" ref={combinedTicketInputRef} className="hidden" onChange={handleTicketUpload} />
       <input type="file" accept=".pdf,.png,.jpg,.jpeg" ref={receiptInputRef} className="hidden" onChange={handleReceiptUpload} />
@@ -345,7 +350,7 @@ export default function TravelDashboard() {
             <h2 className="text-2xl font-bold text-gray-900">Hello, {participantName}!</h2>
             <p className="text-gray-600 mt-1">We're here to make your trip smooth and stress-free.</p>
             <h3 className="text-lg font-bold text-purple-700 mt-3">{eventName}</h3>
-            
+
             <div className="flex flex-wrap gap-2 mt-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-700 border border-green-200">
                 <CheckCircle2 size={14} /> Reimbursement Eligible
@@ -435,7 +440,7 @@ export default function TravelDashboard() {
                 </p>
               </div>
             </div>
-            
+
             <div className="mb-4">
               <p className="text-sm text-gray-600 leading-relaxed">
                 {claim?.status && claim?.status !== "DRAFT"
@@ -538,10 +543,10 @@ export default function TravelDashboard() {
                 <p className="text-xs text-gray-500">Your planned journey</p>
               </div>
             </div>
-            
-            <form 
-              onSubmit={async (e) => { 
-                e.preventDefault(); 
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
                 if (!isTravelDetailsValid) {
                   const allTouched = Object.keys(travelDetailsForm).reduce((acc, key) => ({...acc, [key]: true}), {});
                   setTravelDetailsTouched(allTouched);
@@ -568,7 +573,7 @@ export default function TravelDashboard() {
                 } catch (err) {
                   console.error(err);
                 }
-              }} 
+              }}
               className="space-y-4 flex-1 flex flex-col"
             >
               {travelDetailsLocked && (
@@ -576,7 +581,7 @@ export default function TravelDashboard() {
                   Travel details locked by organizers.
                 </div>
               )}
-              
+
               <div className="space-y-3 overflow-y-auto pr-1 flex-1">
                 <div>
                   <p className="text-[10px] font-semibold text-purple-600 mb-1 uppercase tracking-wider">Arrival Information</p>
@@ -636,7 +641,7 @@ export default function TravelDashboard() {
               </div>
 
               <div className="mt-2 pt-3 border-t border-gray-100">
-                <button 
+                <button
                   type="submit"
                   disabled={travelDetailsLocked || !isTravelDetailsValid}
                   className="w-full py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 text-sm font-semibold rounded-xl transition border border-purple-100 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
@@ -657,7 +662,7 @@ export default function TravelDashboard() {
                 <p className="text-xs text-gray-500">Agenda</p>
               </div>
             </div>
-            
+
             <div className="relative border-l-2 border-orange-100 ml-4 space-y-5 mt-1 flex-1">
               {scheduleItems.map((item, i) => (
                 <div key={i} className="relative pl-6">
@@ -724,8 +729,6 @@ export default function TravelDashboard() {
         </div>
       </div>
 
-
-
       {/* Claim Form Modal */}
       {isClaimModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
@@ -736,7 +739,7 @@ export default function TravelDashboard() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={submitClaim} className="p-5 space-y-3">
               {travelData?.is_locked && (
                 <div className="p-2 rounded-lg bg-red-50 text-red-700 text-xs font-medium flex items-center gap-2">
@@ -749,8 +752,7 @@ export default function TravelDashboard() {
                   {claimFormError}
                 </div>
               )}
-              
-              {/* Row 1 */}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Account Holder Name</label>
@@ -762,7 +764,6 @@ export default function TravelDashboard() {
                 </div>
               </div>
 
-              {/* Row 2 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Account Number</label>
@@ -781,7 +782,6 @@ export default function TravelDashboard() {
                 )}
               </div>
 
-              {/* Row 3 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">IFSC Code</label>
@@ -796,7 +796,6 @@ export default function TravelDashboard() {
                 </div>
               </div>
 
-              {/* Row 4 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Branch Name</label>
@@ -810,7 +809,6 @@ export default function TravelDashboard() {
 
               <hr className="border-gray-100 my-2" />
 
-              {/* Expenses */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Arrival Ticket (₹)</label>
@@ -828,7 +826,6 @@ export default function TravelDashboard() {
 
               <hr className="border-gray-100 my-2" />
 
-              {/* Proofs */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2 mb-1">
@@ -843,7 +840,7 @@ export default function TravelDashboard() {
                     <span className="text-[10px] text-red-500 flex items-center gap-1"><X size={12}/> Missing</span>
                   )}
                 </div>
-                
+
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-medium text-gray-700">Other Expense Proof</span>
@@ -859,7 +856,6 @@ export default function TravelDashboard() {
                 </div>
               </div>
 
-              {/* Summary Strip */}
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-3 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-gray-700">Maximum Reimbursement Allowed</span>
@@ -883,14 +879,13 @@ export default function TravelDashboard() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="pt-2 flex gap-3 justify-end">
                 <button type="button" onClick={() => setIsClaimModalOpen(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition border border-transparent">
                   {travelData?.is_locked ? "Close" : "Cancel"}
                 </button>
                 {!travelData?.is_locked && (
                   <button type="submit" disabled={claimSubmitting || !accountsMatch || !ifscValid || totalClaimAmount > reimbursementLimit || totalClaimAmount <= 0} className="px-5 py-2 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {claimSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null} 
+                    {claimSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                     Submit Claim
                   </button>
                 )}
