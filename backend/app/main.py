@@ -96,3 +96,13 @@ async def websocket_endpoint(websocket: WebSocket, event_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, event_id)
+
+@app.websocket("/events/{event_id}/scoring")
+async def websocket_endpoint_alt(websocket: WebSocket, event_id: str):
+    await manager.connect(websocket, event_id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, event_id)
+        manager.disconnect(websocket, event_id)

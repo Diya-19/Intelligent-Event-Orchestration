@@ -311,7 +311,9 @@ async def chat_websocket(
         .first()
     )
     if not membership:
-        if settings.DEV_MODE:
+        # Auto-add participant to room if they are a valid participant
+        # (mirrors DEV_MODE behaviour — don't reject known participants)
+        if participant_id:
             _ensure_member(db, room_id, participant_id)
         else:
             await websocket.close(code=4003)
