@@ -1,24 +1,32 @@
+# Web framework
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# Database
 sqlalchemy==2.0.30
 alembic==1.13.1
 psycopg2-binary==2.9.9
-python-multipart==0.0.9
+
+# Auth & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
+
+# Settings & env
 pydantic[email]==2.7.1
 pydantic-settings==2.2.1
 python-dotenv==1.0.1
-bcrypt==4.0.1
 
-# --- Added for Async Background Tasks ---
+# Async task queue
 celery>=5.3.6
 redis>=5.0.3
 
-# --- Added for LLM Integration ---
-google-generativeai>=0.5.2
-groq>=1.4.0
+# LLM
+groq>=0.9.0
 
-# --- Added for Email Delivery ---
+# Email
 sendgrid>=6.11.0
+
+# HTTP
+requests>=2.31.0

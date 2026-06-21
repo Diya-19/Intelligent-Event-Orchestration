@@ -43,9 +43,6 @@ export default function TeamPage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <h2 className="text-xl font-semibold mb-2">{data.team.name}</h2>
-            <p className="text-gray-500 text-sm">
-              Registration ID: <span className="font-medium text-gray-900">{data.team.registration_id || "Pending"}</span>
-            </p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -110,7 +107,7 @@ export default function TeamPage() {
             {data.track ? (
               <p className="font-medium text-gray-900">{data.track.name}</p>
             ) : (
-              <p className="text-sm text-gray-500">No track assigned</p>
+              <p className="text-sm text-gray-500">AI & ML</p>
             )}
           </div>
 

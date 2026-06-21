@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Users,
   UserPlus,
@@ -7,40 +8,28 @@ import {
   Calendar,
   MoreVertical,
 } from "lucide-react";
+import { api } from "../../lib/api";
 
 export default function CurrentEvent() {
+  const [searchParams] = useSearchParams();
+  const eventId = searchParams.get("event_id") ?? "";
   const [dashboard, setDashboard] = useState<any>(null);
-const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-useEffect(() => {
-  const fetchDashboard = async () => {
-    try {
-      const token = localStorage.getItem("committee_token");
-      // console.log("TOKEN:", token);
-
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/dashboard/dashboard?event_id=bdb62201-3b2b-4cfc-9396-a8fa2a41ab0d",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      // console.log(data);
-
-      setDashboard(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchDashboard();
-}, []);
+  useEffect(() => {
+    if (!eventId) return;
+    const fetchDashboard = async () => {
+      try {
+        const { data } = await api.get(`/api/dashboard/dashboard?event_id=${eventId}`);
+        setDashboard(data);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, [eventId]);
 const stats = [
   {
     title: "Total Teams",

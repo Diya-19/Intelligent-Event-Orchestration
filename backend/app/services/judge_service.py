@@ -1,11 +1,12 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 from app.models.team import Team
 from app.models.evaluation import Evaluation
 from app.models.activity_log import ActivityLog
 from app.models.event import Event
 from app.models.team_member import TeamMember
 from app.models.participant import Participant
+from app.models.score_anomaly import ScoreAnomaly
 from typing import Dict, Any
 from datetime import datetime
 from fastapi import HTTPException
@@ -248,6 +249,121 @@ def save_evaluation_draft(db: Session, evaluator: dict, team_id: str, payload: d
     db.commit()
     return {"message": "Draft saved"}
 
+def _flag_anomaly_if_needed(
+    db: Session,
+    evaluation: Evaluation,
+    dimension: str,
+    score: float,
+    std_dev_threshold: float = 1.5,
+):
+    """
+    Flags a ScoreAnomaly when a judge's score deviates more than
+    std_dev_threshold standard deviations from the panel mean for that
+    dimension/team. Requires at least 2 other submitted evaluations to
+    compute a meaningful std dev. Must be called after db.flush() so
+    evaluation.id is assigned but before db.commit().
+    """
+    panel_scores = db.execute(
+        select(Evaluation.scores)
+        .where(
+            Evaluation.team_id == evaluation.team_id,
+            Evaluation.id != evaluation.id,
+            Evaluation.submitted_at != None,  # noqa: E711
+        )
+    ).scalars().all()
+
+    dim_values = [
+        float(s[dimension])
+        for s in panel_scores
+        if s and dimension in s
+    ]
+    if len(dim_values) < 2:
+        return  # Need at least 2 other scores to compute std dev
+
+    mean = sum(dim_values) / len(dim_values)
+    variance = sum((x - mean) ** 2 for x in dim_values) / len(dim_values)
+    std_dev = variance ** 0.5
+
+    if std_dev == 0:
+        return  # All panel scores identical — no meaningful deviation
+
+    deviation = score - mean
+    z_score = abs(deviation) / std_dev
+
+    if z_score > std_dev_threshold:
+        db.add(ScoreAnomaly(
+            evaluation_id=evaluation.id,
+            team_id=evaluation.team_id,
+            evaluator_id=evaluation.evaluator_id,
+            dimension=dimension,
+            flagged_score=score,
+            panel_average=round(mean, 2),
+            deviation=round(deviation, 2),
+            status="pending",
+        ))
+
+
+def _recheck_all_anomalies(db: Session, team_id: str, std_dev_threshold: float = 1.5):
+    """
+    After every submission, re-evaluate ALL submitted evaluations for a team
+    across every dimension. Clears existing pending anomalies for the team
+    and recomputes from scratch so submission order doesn't matter.
+    """
+    all_evals = db.execute(
+        select(Evaluation)
+        .where(
+            Evaluation.team_id == team_id,
+            Evaluation.submitted_at != None,  # noqa: E711
+        )
+    ).scalars().all()
+
+    if len(all_evals) < 2:
+        return  # Need at least 3 submissions to compute meaningful std dev
+
+    # Clear pending anomalies for this team — will recompute below
+    existing = db.execute(
+        select(ScoreAnomaly)
+        .where(ScoreAnomaly.team_id == team_id, ScoreAnomaly.status == "pending")
+    ).scalars().all()
+    for a in existing:
+        db.delete(a)
+    db.flush()
+
+    # Collect all scores per dimension
+    dimensions: dict[str, list[tuple[Evaluation, float]]] = {}
+    for ev in all_evals:
+        if not ev.scores:
+            continue
+        for dim, val in ev.scores.items():
+            dimensions.setdefault(dim, []).append((ev, float(val)))
+
+    for dim, entries in dimensions.items():
+        if len(entries) < 3:
+            continue
+
+        values = [v for _, v in entries]
+        mean = sum(values) / len(values)
+        variance = sum((x - mean) ** 2 for x in values) / len(values)
+        std_dev = variance ** 0.5
+
+        if std_dev == 0:
+            continue  # All identical — no outlier possible
+
+        for ev, score in entries:
+            z_score = abs(score - mean) / std_dev
+            if z_score > std_dev_threshold:
+                db.add(ScoreAnomaly(
+                    evaluation_id=ev.id,
+                    team_id=ev.team_id,
+                    evaluator_id=ev.evaluator_id,
+                    dimension=dim,
+                    flagged_score=score,
+                    panel_average=round(mean, 2),
+                    deviation=round(score - mean, 2),
+                    status="pending",
+                ))
+
+
 def submit_evaluation(db: Session, evaluator: dict, team_id: str, payload: dict):
     evaluator_id = evaluator["evaluator_id"]
     event_id = evaluator["event_id"]
@@ -255,7 +371,6 @@ def submit_evaluation(db: Session, evaluator: dict, team_id: str, payload: dict)
     team = db.query(Team).filter(Team.id == team_id, Team.event_id == event_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
-
 
     evaluation = db.query(Evaluation).filter(
         Evaluation.team_id == team_id,
@@ -305,7 +420,11 @@ def submit_evaluation(db: Session, evaluator: dict, team_id: str, payload: dict)
         evaluation.comments = comments
         evaluation.overall = overall
         evaluation.submitted_at = datetime.utcnow()
-        
+
+    db.flush()  # assigns evaluation.id before anomaly check
+
+    # Re-evaluate ALL panel submissions for this team so order doesn't matter
+    _recheck_all_anomalies(db, team_id)
+
     db.commit()
     return {"message": "Evaluation submitted"}
- 

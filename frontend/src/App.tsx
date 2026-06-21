@@ -24,6 +24,8 @@ import JudgeSidebar from "./pages/Judge/sidebar";
 import JudgeDashboard from "./pages/Judge/dashboard";
 import MyEvaluation from "./pages/Judge/Evaluation";
 import EvaluationPage from "./pages/Judge/EvaluationPage";
+import JudgeDeadlines from "./pages/Judge/Deadlines";
+import JudgeProfile from "./pages/Judge/Profile";
 
 // Participant Pages
 import ParticipantSidebar from "./pages/participant/sidebar";
@@ -68,8 +70,8 @@ function RequireRound3({ children }: { children: JSX.Element }) {
 
 // JUDGE AUTH (With DEV_MODE Support)
 function RequireJudgeAuth({ children }: { children: JSX.Element }) {
-  //const isDev = import.meta.env.VITE_DEV_MODE === "true";
-  const isDev = true;
+  const isDev = import.meta.env.VITE_DEV_MODE === "true";
+  // const isDev = false;
    console.log("DEV MODE =", import.meta.env.VITE_DEV_MODE, "isDev =", isDev);
   
   if (isDev) {
@@ -146,6 +148,8 @@ export default function App() {
           <Route index element={<JudgeDashboard />} />
           <Route path="evaluations" element={<MyEvaluation />} />
           <Route path="evaluation/:teamId" element={<EvaluationPage />} />
+          <Route path="deadlines" element={<JudgeDeadlines />} />
+          <Route path="profile" element={<JudgeProfile />} />
         </Route>
 
         {/* PARTICIPANT DASHBOARD */}

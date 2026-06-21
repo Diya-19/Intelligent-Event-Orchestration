@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, Filter, AlertTriangle, Users, ClipboardCheck, Trophy, Star, Eye, CheckCircle } from "lucide-react";
-import { api } from "../../lib/api";
+import { api, wsBase } from "../../lib/api";
 
 type Evaluation = {
   evaluator_id: string;
@@ -22,6 +22,8 @@ type TeamScoreData = {
 type Anomaly = {
   id: string;
   evaluation_id: string;
+  team_id: string | null;
+  team_name: string;
   dimension: string;
   flagged_score: number;
   panel_average: number;
@@ -73,10 +75,7 @@ export default function Scoring() {
      let pingInterval: ReturnType<typeof setInterval>;
 
     const connectWebSocket = () => {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host; 
-      
-      ws = new WebSocket(`${protocol}//${host}/ws/events/${eventId}/scoring`);
+      ws = new WebSocket(`${wsBase()}/ws/events/${eventId}/scoring`);
 
       ws.onopen = () => {
         console.log("Connected to live scoring stream!");
@@ -516,6 +515,7 @@ function AnomalyModal({
             <table className="w-full whitespace-nowrap">
               <thead className="bg-gray-100 rounded-t-lg">
                 <tr>
+                  <th className="text-left p-3 text-xs uppercase font-bold text-gray-500">Team</th>
                   <th className="text-left p-3 text-xs uppercase font-bold text-gray-500">Dimension</th>
                   <th className="text-left p-3 text-xs uppercase font-bold text-gray-500">Flagged Score</th>
                   <th className="text-left p-3 text-xs uppercase font-bold text-gray-500">Panel Avg</th>
@@ -527,9 +527,11 @@ function AnomalyModal({
               </thead>
               <tbody>
                 {anomalies.map((item) => {
-                  const severity = Math.abs(item.deviation) > 5 ? "High" : "Medium";
+                  const absDeviation = Math.abs(item.deviation);
+                  const severity = absDeviation > 4 ? "High" : absDeviation > 2 ? "Medium" : "Low";
                   return (
                     <tr key={item.id} className="border-t hover:bg-gray-50">
+                      <td className="p-3 font-medium text-gray-900">{item.team_name}</td>
                       <td className="p-3 font-medium capitalize text-gray-900">{item.dimension}</td>
                       <td className="p-3 text-red-600 font-bold">{item.flagged_score}</td>
                       <td className="p-3 text-gray-600">{item.panel_average}</td>
@@ -538,7 +540,9 @@ function AnomalyModal({
                       </td>
                       <td className="p-3">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          severity === "High" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
+                          severity === "High" ? "bg-red-100 text-red-700" :
+                          severity === "Medium" ? "bg-orange-100 text-orange-700" :
+                          "bg-yellow-100 text-yellow-700"
                         }`}>
                           {severity}
                         </span>

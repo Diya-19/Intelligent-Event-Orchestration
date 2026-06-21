@@ -115,14 +115,9 @@ def request_judge_link(body: JudgeLinkRequest, db: Session = Depends(get_db)):
     """
     _GENERIC_RESPONSE = {"message": "If that email is registered as a judge, you'll receive a login link shortly."}
 
-    try:
-        event_uuid = uuid.UUID(body.event_id)
-    except ValueError:
-        return _GENERIC_RESPONSE
-
     evaluator = (
         db.query(Evaluator)
-        .filter(Evaluator.email == body.email, Evaluator.event_id == event_uuid)
+        .filter(Evaluator.email == body.email)
         .first()
     )
     if not evaluator:
@@ -139,9 +134,18 @@ def request_judge_link(body: JudgeLinkRequest, db: Session = Depends(get_db)):
     frontend_base = settings.FRONTEND_URL
     login_url = f"{frontend_base}/login?token={token}"
 
+    if settings.DEV_MODE:
+        print(f"\n{'='*60}")
+        print(f"DEV MODE — judge login link for {evaluator.email}:")
+        print(f"  {login_url}")
+        print(f"{'='*60}\n")
+        return _GENERIC_RESPONSE
+
     try:
         sg = SendGridAPIClient(os.environ.get("SENDGRID_API_KEY", ""))
         from_email = os.environ.get("FROM_EMAIL", "agrawaldiya80@gmail.com")
+        if not from_email:
+            raise ValueError("FROM_EMAIL env var is not set")
         message = Mail(
             from_email=from_email,
             to_emails=evaluator.email,
@@ -155,7 +159,7 @@ def request_judge_link(body: JudgeLinkRequest, db: Session = Depends(get_db)):
         )
         sg.send(message)
     except Exception as e:
-        print(f"Failed to send judge link email to {evaluator.email}: {e}")
+        print(f"ERROR: Failed to send judge link email to {evaluator.email}: {e}")
 
     return _GENERIC_RESPONSE
 

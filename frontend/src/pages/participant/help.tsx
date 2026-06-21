@@ -1,7 +1,6 @@
 // frontend/src/pages/participant/help.tsx
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useEffect, useRef, useState } from "react";
 import {
   Shield,
   FileText,
@@ -24,6 +23,8 @@ import {
   ChevronRight,
   Headphones,
 } from "lucide-react";
+import { api, wsBase } from "../../lib/api";
+
 
 export default function HelpPage() {
   const [description, setDescription] = useState("");
@@ -36,148 +37,70 @@ export default function HelpPage() {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
   const getIcon = (issueType: string) => {
-  switch (issueType) {
-    case "Exam Conflict":
-      return FileText;
-    case "Internship Clash":
-      return Briefcase;
-    case "Medical Issue":
-      return Heart;
-    default:
-      return HelpCircle;
-  }
-};
-const filteredRequests =
-  statusFilter === "All Status"
-    ? requests
-    : requests.filter(
-        (request) => request.status === statusFilter
-      );
-  
-  const submittedRequests = [
-    {
-      id: 1,
-      type: "Exam Conflict - Mid Sem",
-      icon: FileText,
-      iconBg: "bg-yellow-100",
-      iconColor: "text-yellow-600",
-      description: "I have my mid sem examination scheduled on May 31 which clashes with the submission.",
-      date: "May 31, 2026",
-      duration: "1 Day",
-      submittedDate: "May 20, 2026 at 10:30 AM",
-      status: "Under Review",
-      statusColor: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    },
-    {
-      id: 2,
-      type: "Internship Timing Clash",
-      icon: Briefcase,
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-      description: "My internship work hours overlap with the team meeting and mentor review.",
-      date: "Jun 3 - Jun 15, 2026",
-      duration: "13 Days",
-      submittedDate: "May 18, 2026 at 04:15 PM",
-      status: "Approved",
-      statusColor: "bg-green-100 text-green-700 border-green-200",
-    },
-    {
-      id: 3,
-      type: "Medical Issue",
-      icon: Heart,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-      description: "Medical check-up and treatment requires time during build phase.",
-      date: "May 22 - May 24, 2026",
-      duration: "3 Days",
-      submittedDate: "May 19, 2026 at 11:20 AM",
-      status: "Resolved",
-      statusColor: "bg-blue-100 text-blue-700 border-blue-200",
-    },
-    {
-      id: 4,
-      type: "Other - Personal Emergency",
-      icon: MoreHorizontal,
-      iconBg: "bg-purple-100",
-      iconColor: "text-purple-600",
-      description: "Family emergency; need some time to manage things.",
-      date: "Jun 7, 2026",
-      duration: "1 Day",
-      submittedDate: "May 21, 2026 at 09:10 AM",
-      status: "Rejected",
-      statusColor: "bg-red-100 text-red-700 border-red-200",
-    },
-  ];
-  const fetchRequests = async () => {
-  try {
-    const res = await fetch(
-      "http://127.0.0.1:8000/api/participant/support-requests"
-    );
-
-    const data = await res.json();
-    setRequests(data);
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-const handleSubmit = async () => {
-  try {
-    const res = await fetch(
-      "http://127.0.0.1:8000/api/participant/support-requests",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          issue_type: issueType,
-          priority,
-          conflict_date: conflictDate,
-          duration,
-          description,
-          notify_admin: notifyAdmin,
-        }),
-      }
-    );
-
-    const data = await res.json();
-
-    alert(data.message);
-
-    setDescription("");
-    setIssueType("");
-    setConflictDate("");
-    setDuration("");
-
-    fetchRequests();
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-useEffect(() => {
-  fetchRequests();
-}, []);
-
-const handleDelete = async (id: number) => {
-  try {
-    await axios.delete(
-      `http://localhost:8000/api/participant/support-requests/${id}`
-    );
-
-    setRequests(prev =>
-      prev.filter(request => request.id !== id)
-    );
-
-    if (selectedRequest?.id === id) {
-      setSelectedRequest(null);
+    switch (issueType) {
+      case "Exam Conflict": return FileText;
+      case "Internship Clash": return Briefcase;
+      case "Medical Issue": return Heart;
+      default: return HelpCircle;
     }
-  } catch (error) {
-    console.error("Failed to delete request", error);
-  }
-};
+  };
+
+  const filteredRequests =
+    statusFilter === "All Status"
+      ? requests
+      : requests.filter((request) => request.status === statusFilter);
+
+  const fetchRequests = async () => {
+    try {
+      const { data } = await api.get("/api/participant/support-requests");
+      setRequests(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const { data } = await api.post("/api/participant/support-requests", {
+        issue_type: issueType,
+        priority,
+        conflict_date: conflictDate,
+        duration,
+        description,
+        notify_admin: notifyAdmin,
+      });
+      alert(data.message);
+      setDescription("");
+      setIssueType("");
+      setConflictDate("");
+      setDuration("");
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+
+    // WebSocket for real-time status updates from committee
+    const ws = new WebSocket(`${wsBase()}/api/participant/ws/support`);
+
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "support_request_updated") {
+        // Refresh list when committee updates a request status
+        fetchRequests();
+      }
+    };
+    ws.onerror = (e) => console.error("Support WS error", e);
+    wsRef.current = ws;
+
+    return () => ws.close();
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -201,6 +124,9 @@ const handleDelete = async (id: number) => {
           <div>
             <p className="text-sm font-medium text-gray-900">
               Your request will be reviewed by the support team.
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              You will receive updates via email and dashboard notifications.
             </p>
           </div>
         </div>
@@ -459,26 +385,13 @@ const handleDelete = async (id: number) => {
                     <p className="text-xs text-gray-500">
                       Submitted on{" "}
                       {request.created_at
-                        ? new Date(request.created_at).toLocaleString()
-                        : "N/A"}
-                    </p>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setSelectedRequest(request)}
-                        className="px-4 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        View Details
-                      </button>
-
-                      <button
-                        onClick={() => handleDelete(request.id)}
-                        className="px-4 py-1.5 border border-red-300 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                      ? new Date(request.created_at).toLocaleString()
+                      : "N/A"}
+                      </p>
+                    <button onClick={() => setSelectedRequest(request)} className="px-4 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+                      <Eye className="w-3.5 h-3.5" />
+                      View Details
+                    </button>
                   </div>
                 </div>
               ))}
@@ -533,7 +446,7 @@ const handleDelete = async (id: number) => {
         </div>
       )}
       <footer className="bg-white border-t border-gray-200 px-8 py-4 flex items-center justify-between text-xs text-gray-500">
-        <span>© 2026 HackFlow. All rights reserved.</span>
+        <span>©️ 2026 HackFlow. All rights reserved.</span>
         <div className="flex items-center gap-4">
           <button className="hover:text-gray-700">Privacy Policy</button>
           <span>|</span>

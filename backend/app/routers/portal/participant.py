@@ -17,23 +17,18 @@ router = APIRouter()
 
 import asyncio
 
+SUPPORT_WS_ROOM = "support"
+
 @router.websocket("/ws/support")
 async def support_websocket(websocket: WebSocket):
-    print("WebSocket connection request received")
-
-    await manager.connect(websocket)
-    print("Committee connected")
-
+    await manager.connect(websocket, SUPPORT_WS_ROOM)
     try:
         while True:
-            await asyncio.sleep(1)
-
-    except Exception as e:
-        print("WebSocket Error:", e)
-
+            await asyncio.sleep(30)
+    except Exception:
+        pass
     finally:
-        print("Committee disconnected")
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, SUPPORT_WS_ROOM)
 
 
 @router.get("/dashboard")
@@ -317,11 +312,11 @@ async def create_support_request(
     db: Session = Depends(get_db)
 ):
     print("CREATE SUPPORT REQUEST HIT")
-    if not settings.DEV_MODE:
-        raise HTTPException(
-            status_code=403,
-            detail="Auth required outside DEV_MODE"
-        )
+   # if not settings.DEV_MODE:
+   #     raise HTTPException(
+   #         status_code=403,
+   #         detail="Auth required outside DEV_MODE"
+   #     )
 
     support_request = SupportRequest(
         issue_type=data.issue_type,
@@ -338,35 +333,14 @@ async def create_support_request(
     db.add(support_request)
     db.commit()
     db.refresh(support_request)
-    print("Broadcasting support request")
-    await manager.broadcast({
-    "type": "new_support_request",
-    "id": support_request.id,
-    "issue_type": support_request.issue_type,
-    "priority": support_request.priority,
-    "description": support_request.description,
-})
 
-    return {
+    await manager.broadcast_to_event(SUPPORT_WS_ROOM, {
+        "type": "new_support_request",
         "id": support_request.id,
-        "status": support_request.status,
-        "message": "Request submitted successfully"
-    }
-    support_request = SupportRequest(
-        issue_type=data.issue_type,
-        priority=data.priority,
-        conflict_date=data.conflict_date,
-        duration=data.duration,
-        start_time=data.start_time,
-        end_time=data.end_time,
-        description=data.description,
-        notify_admin=data.notify_admin,
-        status="Under Review"
-    )
-
-    db.add(support_request)
-    db.commit()
-    db.refresh(support_request)
+        "issue_type": support_request.issue_type,
+        "priority": support_request.priority,
+        "description": support_request.description,
+    })
 
     return {
         "id": support_request.id,

@@ -5,6 +5,15 @@ export const api = axios.create({
   baseURL: "",
 });
 
+export function wsBase(): string {
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  if (apiUrl) {
+    return apiUrl.replace(/^http/, "ws");
+  }
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}`;
+}
+
 api.interceptors.request.use((config) => {
   // If the request is for the judge portal, use the judge token
   if (config.url?.startsWith("/api/judge")) {

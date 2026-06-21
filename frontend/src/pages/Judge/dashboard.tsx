@@ -372,6 +372,7 @@ export default function Dashboard() {
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const [judgeProfile, setJudgeProfile] = useState({ name: "", email: "", organization: "", avatar: "" });
 
   useEffect(() => {
     const updateActivity = () => {
@@ -410,13 +411,23 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const [dashRes, evalRes] = await Promise.all([
+        const [dashRes, evalRes, profileRes] = await Promise.all([
           api.get('/api/judge/dashboard'),
-          api.get('/api/judge/evaluations')
+          api.get('/api/judge/evaluations'),
+          api.get('/api/judge/profile'),
         ]);
         setDashboardData(dashRes.data);
         setEvaluationsList(evalRes.data);
         setRealActivity(mergeApiActivities(evalRes.data));
+        // Merge backend data with any locally saved avatar
+        const savedProfile = localStorage.getItem('judge_profile');
+        const localAvatar = savedProfile ? JSON.parse(savedProfile).avatar : "";
+        setJudgeProfile({
+          name: profileRes.data.name || "",
+          email: profileRes.data.email || "",
+          organization: profileRes.data.organization || "",
+          avatar: localAvatar,
+        });
         setError(null);
       } catch (err) {
         console.error("Failed to fetch dashboard data", err);
@@ -554,7 +565,7 @@ export default function Dashboard() {
       <div className="w-full flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            Welcome back, <span className="text-slate-900">Dr. Ananya Sharma</span> 👋
+            Welcome back, <span className="text-slate-900">{judgeProfile.name || "Judge"}</span> 👋
           </h1>
           <p className="text-slate-500 text-sm mt-1">Here's an overview of your evaluation tasks.</p>
         </div>
@@ -608,11 +619,17 @@ export default function Dashboard() {
               className="flex items-center gap-2 cursor-pointer p-1 rounded-full hover:bg-slate-100 transition-colors"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
             >
-              <img 
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=120&auto=format&fit=crop" 
-                alt="Dr. Ananya Sharma" 
-                className="w-10 h-10 rounded-full object-cover border border-slate-200"
-              />
+              {judgeProfile.avatar ? (
+                <img
+                  src={judgeProfile.avatar}
+                  alt={judgeProfile.name}
+                  className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold text-sm border border-slate-200">
+                  {judgeProfile.name ? judgeProfile.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : "J"}
+                </div>
+              )}
               <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showProfileMenu ? 'rotate-[-90deg]' : 'rotate-90'}`} />
             </div>
 

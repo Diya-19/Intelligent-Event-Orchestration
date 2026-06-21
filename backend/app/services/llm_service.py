@@ -6,29 +6,31 @@ def draft_communication_template(event_name: str, stage: str, recipient_type: st
     """
     Generates an automated email template based on the event stage and audience.
     """
-    import google.generativeai as genai  # lazy import — keeps app startable if package is missing
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name="gemini-2.0-flash")
+    from groq import Groq  # lazy import
 
-    prompt = f"""
-    You are an automated event orchestrator writing an email template.
-    Event Name: {event_name}
-    Event Stage: {stage}
-    Audience: {recipient_type}
-    Additional Context: {custom_context}
+    client = Groq(api_key=settings.GROQ_API_KEY)
 
-    Write a professional, encouraging email body.
-    You MUST strictly use these placeholders where appropriate:
-    {{{{name}}}} - The recipient's name
-    {{{{event_name}}}} - The name of the event
-    {{{{team_name}}}} - The name of the team (if applicable)
-    {{{{action_link}}}} - A link they need to click (if applicable)
+    prompt = f"""You are an automated event orchestrator writing an email template.
+Event Name: {event_name}
+Event Stage: {stage}
+Audience: {recipient_type}
+Additional Context: {custom_context}
 
-    Do not include the Subject line in the output, only the body. Keep it concise.
-    """
+Write a professional, encouraging email body.
+You MUST strictly use these placeholders where appropriate:
+{{name}} - The recipient's name
+{{event_name}} - The name of the event
+{{team_name}} - The name of the team (if applicable)
+{{action_link}} - A link they need to click (if applicable)
 
-    response = model.generate_content(prompt)
-    return response.text.strip()
+Do not include the Subject line in the output, only the body. Keep it concise."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.5,
+    )
+    return response.choices[0].message.content.strip()
 
 
 def generate_teams_with_llm(

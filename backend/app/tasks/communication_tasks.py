@@ -5,7 +5,6 @@ from app.celery_app import celery_app
 from celery.exceptions import Retry
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from app.websocket_manager import manager
 
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -20,10 +19,10 @@ from app.services.token_service import create_access_token
 from app.config import settings
 
 def render_template(template: str, context: dict) -> str:
-    """Replaces {{placeholders}} with context values."""
+    """Replaces {placeholder} with context values."""
     rendered = template
     for key, value in context.items():
-        rendered = rendered.replace(f"{{{{{key}}}}}", str(value))
+        rendered = rendered.replace(f"{{{key}}}", str(value))
     return rendered
 
 # ==========================================
@@ -31,40 +30,55 @@ def render_template(template: str, context: dict) -> str:
 # ==========================================
 
 def get_participant_recipients(db: Session, event: Event) -> list:
-    """
-    Optimized Fetch: Uses SQL JOINs to get Participant and Team Name 
-    in a SINGLE query. Eliminates the N+1 SELECT bottleneck.
-    """
     query = (
         select(Participant, Team.name.label("team_name"))
         .outerjoin(TeamMember, TeamMember.participant_id == Participant.id)
         .outerjoin(Team, Team.id == TeamMember.team_id)
         .where(Participant.event_id == event.id)
     )
-    
     rows = db.execute(query).all()
-    
-    return [{
-        "email": row.Participant.email,
-        "name": row.Participant.name,
-        "context": {
-            "name": row.Participant.name, 
-            "event_name": event.name, 
-            "team_name": row.team_name or "Unassigned"
-        }
-    } for row in rows]
+
+    recipients = []
+    for row in rows:
+        p = row.Participant
+        token = create_access_token(
+            {"sub": f"participant:{p.id}", "event": str(event.id)},
+            expires_delta=timedelta(days=30),
+        )
+        p.portal_token = token
+        login_url = f"{settings.FRONTEND_URL}/login?participant_token={token}"
+        recipients.append({
+            "email": p.email,
+            "name": p.name,
+            "context": {
+                "name": p.name,
+                "event_name": event.name,
+                "team_name": row.team_name or "Unassigned",
+                "action_link": login_url,
+            }
+        })
+    return recipients
 
 def get_judge_recipients(db: Session, event: Event) -> list:
     evaluators = db.execute(select(Evaluator).where(Evaluator.event_id == event.id)).scalars().all()
-    return [{
-        "email": e.email,
-        "name": e.name,
-        "context": {
-            "name": e.name, 
-            "event_name": event.name, 
-            "action_link": f"https://portal.yourdomain.com/evaluate/{event.id}"
-        }
-    } for e in evaluators]
+    recipients = []
+    for e in evaluators:
+        token = create_access_token(
+            {"sub": f"evaluator:{e.id}", "event": str(event.id)},
+            expires_delta=timedelta(days=30),
+        )
+        e.access_token = token
+        login_url = f"{settings.FRONTEND_URL}/login?token={token}"
+        recipients.append({
+            "email": e.email,
+            "name": e.name,
+            "context": {
+                "name": e.name,
+                "event_name": event.name,
+                "action_link": login_url,
+            }
+        })
+    return recipients
 
 def get_mentor_recipients(db: Session, event: Event) -> list:
     # Placeholder: Your database currently doesn't have a mentors table!
@@ -84,7 +98,7 @@ RECIPIENT_STRATEGIES = {
 # ==========================================
 
 @celery_app.task(name="draft_and_send_emails_task", bind=True, max_retries=3)
-async def draft_and_send_emails_task(self, event_id_str: str, approval_id_str: str = None):
+def draft_and_send_emails_task(self, event_id_str: str, approval_id_str: str = None):
     db: Session = SessionLocal()
     
     try:
@@ -184,13 +198,15 @@ async def draft_and_send_emails_task(self, event_id_str: str, approval_id_str: s
         comm.status = "dispatched" # Changed from "sent"
         db.commit() 
         
-        # We broadcast that the batch has started processing, but NOT that it's delivered
-        # (Assuming you have a websocket manager imported)
-        #
-        await manager.broadcast(f"/ws/events/{comm.event_id}/dashboard", {
-            "event": "emails_dispatched",
-            "payload": {"communication_id": str(comm.id), "status": "dispatched"}
-        })
+        # WebSocket broadcast happens via the HTTP endpoint to avoid async/sync mismatch
+        import requests
+        try:
+            requests.post(
+                f"http://localhost:8000/api/events/{comm.event_id}/scores/broadcast-consolidation",
+                timeout=2,
+            )
+        except Exception:
+            pass  # Non-critical — scoring page will refresh on next poll
     
         
         return f"Dispatched {success_count}/{len(recipients)} emails successfully."

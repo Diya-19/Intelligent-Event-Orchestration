@@ -4,7 +4,7 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: eventuser
+      POSTGRES_USER: event_admin
       POSTGRES_PASSWORD: eventpass
       POSTGRES_DB: eventdb
     ports:

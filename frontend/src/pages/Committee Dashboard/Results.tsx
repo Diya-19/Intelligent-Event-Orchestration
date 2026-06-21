@@ -9,7 +9,7 @@ import {
   Share2,
   ArrowRight,
 } from "lucide-react";
-import { api } from "../../lib/api";
+import { api, wsBase } from "../../lib/api";
 
 // --- Types ---
 type RankedTeam = {
@@ -57,10 +57,7 @@ export default function Results() {
     let pingInterval: ReturnType<typeof setInterval>;
 
     const connectWebSocket = () => {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host; 
-      
-      ws = new WebSocket(`${protocol}//${host}/ws/events/${eventId}/scoring`);
+      ws = new WebSocket(`${wsBase()}/ws/events/${eventId}/scoring`);
 
       ws.onopen = () => {
         console.log("Connected to live scoring stream!");

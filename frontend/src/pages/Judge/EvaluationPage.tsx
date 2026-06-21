@@ -11,7 +11,12 @@ export default function EvaluationPage() {
 
   const [loading, setLoading] = useState(true);
   const [team, setTeam] = useState<any>({});
-  const [rubric, setRubric] = useState<any>({});
+  const [rubric, setRubric] = useState<any>({
+    Impact: 20,
+    Execution: 20,
+    Innovation: 20,
+    Presentation: 20,
+  });
   const [scores, setScores] = useState<any>({});
   const [comments, setComments] = useState("");
   const [status, setStatus] = useState("");
@@ -22,7 +27,12 @@ export default function EvaluationPage() {
       try {
         const { data } = await api.get(`/api/judge/evaluations/${teamId}`);
         setTeam(data.team);
-        setRubric(data.rubric || {});
+        setRubric(Object.keys(data.rubric || {}).length > 0 ? data.rubric : {
+          Impact: 20,
+          Execution: 20,
+          Innovation: 20,
+          Presentation: 20,
+        });
         setScores(data.evaluation?.scores || {});
         setComments(data.evaluation?.comments || "");
         setStatus(data.status);
@@ -96,12 +106,16 @@ export default function EvaluationPage() {
 
   const isReadOnly = status === "Submitted";
 
-  // Calculate total from selected scores
+  // Calculate total from selected scores, normalized to 10
   let total = 0;
   if (Object.keys(rubric).length > 0) {
+    let weightedSum = 0;
+    let totalWeight = 0;
     for (const [key, weight] of Object.entries(rubric)) {
-      total += (scores[key] || 0) * (Number(weight) / 100);
+      weightedSum += (scores[key] || 0) * Number(weight);
+      totalWeight += Number(weight);
     }
+    total = totalWeight > 0 ? weightedSum / totalWeight : 0;
   } else {
     const scoreVals = Object.values(scores) as number[];
     if (scoreVals.length > 0) {

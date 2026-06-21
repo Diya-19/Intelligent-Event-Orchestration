@@ -150,7 +150,7 @@ export default function ParticipantDashboard() {
                   Theme
                 </p>
                 <p className="text-sm font-medium">
-                  {data.event?.theme || <span className="text-gray-400 italic font-normal">Not configured by committee</span>}
+                AI & ML
                 </p>
               </div>
             </div>
@@ -180,7 +180,7 @@ export default function ParticipantDashboard() {
                   Duration
                 </p>
                 <p className="text-sm font-medium">
-                  {data.event?.start_date} - {data.event?.end_date}
+                  3 Weeks
                 </p>
               </div>
             </div>
@@ -195,7 +195,7 @@ export default function ParticipantDashboard() {
                   Submission Deadline
                 </p>
                 <p className="text-sm font-medium">
-                  {data.event?.submission_deadline || <span className="text-gray-400 italic font-normal">Not configured by committee</span>}
+                  Jun 28, 2026
                 </p>
               </div>
             </div>
@@ -210,7 +210,7 @@ export default function ParticipantDashboard() {
                   Evaluation Starts
                 </p>
                 <p className="text-sm font-medium">
-                  {data.event?.evaluation_start || <span className="text-gray-400 italic font-normal">Not configured by committee</span>}
+                  July 5, 2026
                 </p>
               </div>
             </div>
@@ -236,21 +236,6 @@ export default function ParticipantDashboard() {
                   </p>
                   <p className="text-sm font-medium">
                     {data.team?.name || "Unassigned"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <FileText
-                  className="text-purple-400"
-                  size={18}
-                />
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Registration ID
-                  </p>
-                  <p className="text-sm font-medium">
-                    {data.team?.registration_id || "Pending"}
                   </p>
                 </div>
               </div>

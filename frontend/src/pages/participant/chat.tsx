@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Search, Phone, Info, Send, Plus, MoreVertical, MessageCircle, X } from "lucide-react";
-import { api } from "../../lib/api";
+import { api, wsBase } from "../../lib/api";
 import { getParticipantToken } from "../../lib/auth";
 
 interface Room {
@@ -34,6 +34,7 @@ export default function TeamChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selfId, setSelfId] = useState<string | null>(null);
 
   // DM picker state
   const [showDmPicker, setShowDmPicker] = useState(false);
@@ -44,6 +45,11 @@ export default function TeamChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    // Fetch own ID so we can hide self from DM picker
+    api.get("/api/participant/dashboard")
+      .then((res) => setSelfId(res.data?.participant?.id ?? null))
+      .catch(() => {});
+
     api.get("/api/participant/chat/rooms")
       .then((res) => {
         setChannels(res.data.channels ?? []);
@@ -75,8 +81,7 @@ export default function TeamChatPage() {
     const wsPath = token
       ? `/api/participant/chat/ws/${room.id}?token=${token}`
       : `/api/participant/chat/ws/${room.id}`;
-    const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${window.location.host}${wsPath}`);
+    const ws = new WebSocket(`${wsBase()}${wsPath}`);
 
     ws.onmessage = (e) => {
       const msg: Message = JSON.parse(e.data);
@@ -205,7 +210,7 @@ export default function TeamChatPage() {
                   <p className="text-sm text-gray-400">No team members found.</p>
                 ) : (
                   <div className="space-y-1">
-                    {teamMembers.map((m) => (
+                    {teamMembers.filter((m) => m.id !== selfId).map((m) => (
                       <div
                         key={m.id}
                         onClick={() => startDm(m.id, m.name)}

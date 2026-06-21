@@ -29,6 +29,8 @@ from app.models.notification import Notification
 from app.models.travel_query import TravelQuery
 
 from app.models.submission import Submission
+from app.models.chat import ChatRoom, ChatRoomMember, ChatMessage
+
 
 __all__ = [
 
@@ -57,4 +59,7 @@ __all__ = [
     "TeamTravel",
     "Notification",
     "TravelQuery",
+    "ChatRoom",
+    "ChatRoomMember",
+    "ChatMessage"
 ]

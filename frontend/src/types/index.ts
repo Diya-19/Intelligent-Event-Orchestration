@@ -5,6 +5,7 @@ export interface Event {
   current_stage: string;
   config: Record<string, unknown> | null;
   created_at: string;
+  logo?: string;
 }
 
 export interface Participant {
