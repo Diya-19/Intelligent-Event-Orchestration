@@ -1,5 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 
 # Auth
 from app.routers import auth
@@ -35,7 +36,11 @@ app = FastAPI(title="Event Orchestration API", version="1.0.0")
 # --- Middleware ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], # Your Vite frontend
+    #allow_origins=["http://localhost:5173"], # Your Vite frontend
+      allow_origins=[
+        "http://localhost:5173",
+        settings.FRONTEND_URL,
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
