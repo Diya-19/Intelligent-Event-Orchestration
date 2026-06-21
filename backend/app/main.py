@@ -32,15 +32,18 @@ from app.websocket_manager import manager
 
 
 app = FastAPI(title="Event Orchestration API", version="1.0.0")
+_allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    settings.FRONTEND_URL,
+]
 
 # --- Middleware ---
 app.add_middleware(
     CORSMiddleware,
     #allow_origins=["http://localhost:5173"], # Your Vite frontend
-      allow_origins=[
-        "http://localhost:5173",
-        settings.FRONTEND_URL,
-    ],
+    allow_origins=_allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
