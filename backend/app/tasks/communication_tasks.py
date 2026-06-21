@@ -313,7 +313,7 @@ def notify_participants_task(self, event_id_str: str):
         if not members:
             return "No participants in approved teams."
 
-        frontend_base = settings.FRONTEND_URL
+        frontend_base = settings.FRONTEND_URL.rstrip("/")
         sg = SendGridAPIClient(os.environ.get("SENDGRID_API_KEY", ""))
         from_email = os.environ.get("FROM_EMAIL", "agrawaldiya80@gmail.com")
 
@@ -368,7 +368,7 @@ def notify_evaluators_task(self, event_id_str: str):
         if not evaluators:
             return "No evaluators to notify."
 
-        frontend_base = settings.FRONTEND_URL
+        frontend_base = settings.FRONTEND_URL.rstrip("/")
         sg = SendGridAPIClient(os.environ.get("SENDGRID_API_KEY", ""))
         from_email = os.environ.get("FROM_EMAIL", "agrawaldiya80@gmail.com")
 

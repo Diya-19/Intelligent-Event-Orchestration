@@ -131,7 +131,7 @@ def request_judge_link(body: JudgeLinkRequest, db: Session = Depends(get_db)):
     evaluator.access_token = token
     db.commit()
 
-    frontend_base = settings.FRONTEND_URL
+    frontend_base = settings.FRONTEND_URL.rstrip("/")
     login_url = f"{frontend_base}/login?token={token}"
 
     if settings.DEV_MODE:
@@ -225,7 +225,7 @@ def request_participant_link(body: ParticipantLinkRequest, db: Session = Depends
     participant.portal_token = token
     db.commit()
 
-    frontend_base = settings.FRONTEND_URL
+    frontend_base = settings.FRONTEND_URL.rstrip("/")
     login_url = f"{frontend_base}/login?participant_token={token}"
 
     try:
