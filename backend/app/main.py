@@ -80,6 +80,9 @@ app.include_router(portal_travel.router, prefix="/api/participant/travel", tags=
 from app.routers.portal import chat as portal_chat
 app.include_router(portal_chat.router, prefix="/api/participant/chat", tags=["Portal - Chat"])
 #app.include_router(portal_evaluator.router, prefix="/api/portal/evaluator", tags=["Portal - Evaluator"])
+# Fallback mounts without /api prefix (handles WS connections routed via Vercel edge)
+app.include_router(portal_participant.router, prefix="/participant", tags=["Portal - Participant Alt"])
+app.include_router(portal_chat.router, prefix="/participant/chat", tags=["Portal - Chat Alt"])
 
 # Judge Portal Routers
 from app.routers.portal import judge, judge_evaluations
